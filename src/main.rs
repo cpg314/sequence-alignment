@@ -53,7 +53,7 @@ async fn main_impl(args: &Flags) -> anyhow::Result<()> {
             runs,
             output,
         } => {
-            let fasta = fasta::Fasta::from_path(fasta)?;
+            let fasta = fasta::Fasta::<char>::from_path(fasta)?;
             anyhow::ensure!(fasta.0.len() == 2, "Expecting exactly two sequences");
 
             // Align

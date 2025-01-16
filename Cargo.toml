@@ -3,6 +3,11 @@ name = "alignment"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "alignment"
+test = false
+bench = false
+
 [dependencies]
 anyhow = "1.0.95"
 axum = "0.8.1"

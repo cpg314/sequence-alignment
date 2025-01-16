@@ -4,16 +4,16 @@ use super::*;
 
 /// A single sequence with metadata
 #[derive(Debug)]
-pub struct FastaSequence {
+pub struct FastaSequence<T> {
     pub meta: String,
-    pub sequence: Sequence,
+    pub sequence: Sequence<T>,
 }
 
 /// A decoded FASTA file as a list of sequences
 #[derive(Debug)]
-pub struct Fasta(pub Vec<FastaSequence>);
+pub struct Fasta<T>(pub Vec<FastaSequence<T>>);
 
-impl Fasta {
+impl<T: From<char>> Fasta<T> {
     /// Decode FASTA file
     #[tracing::instrument]
     pub fn from_path(p: &Path) -> anyhow::Result<Self> {
@@ -29,7 +29,7 @@ impl Fasta {
                 });
             } else {
                 match sequences.last_mut() {
-                    Some(l) => l.sequence.0.extend(line.chars()),
+                    Some(l) => l.sequence.0.extend(line.chars().map(T::from)),
                     None => anyhow::bail!("Sequence without metadata"),
                 }
             }

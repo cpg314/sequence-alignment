@@ -1,3 +1,4 @@
+use std::cmp::PartialEq;
 use std::collections::VecDeque;
 use std::path::Path;
 
@@ -11,12 +12,20 @@ use super::Sequence;
 
 /// An alignment of two sequences
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Alignment {
-    pub alignment: VecDeque<[Option<char>; 2]>,
+pub struct Alignment<T> {
+    pub alignment: VecDeque<[Option<T>; 2]>,
     /// Note that the score depends on the aligner parameters
     score: f32,
 }
-impl std::fmt::Display for Alignment {
+impl<T> Default for Alignment<T> {
+    fn default() -> Self {
+        Self {
+            score: f32::NAN,
+            alignment: Default::default(),
+        }
+    }
+}
+impl<T: std::fmt::Display + PartialEq> std::fmt::Display for Alignment<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(
             f,
@@ -28,18 +37,26 @@ impl std::fmt::Display for Alignment {
             write!(
                 f,
                 "{}{}",
-                self.alignment.iter().map(|a| a[i].unwrap_or('-')).join(""),
+                self.alignment
+                    .iter()
+                    .map(|a| a[i]
+                        .as_ref()
+                        .map(|a| a.to_string())
+                        .unwrap_or("-".to_string()))
+                    .join(""),
                 if i == 0 { "\n" } else { "" }
             )?;
         }
         Ok(())
     }
 }
-impl Alignment {
+impl<T: Serialize> Alignment<T> {
     pub fn write(&self, filename: &Path) -> anyhow::Result<()> {
         // Swap JSON for your favourite format (e.g. bincode, cbor...)
         Ok(std::fs::write(filename, serde_json::to_string(&self)?)?)
     }
+}
+impl<T: PartialEq> Alignment<T> {
     /// Ratio of the number of aligned pairs divided by the length including gaps
     fn matching_ratio(&self) -> f32 {
         self.alignment
@@ -67,7 +84,7 @@ enum AlignKind {
 impl Aligner {
     /// Align two sequences and return an alignment
     #[tracing::instrument(skip_all)]
-    pub fn align(&self, seqs: [&Sequence; 2]) -> Alignment {
+    pub fn align<T: std::cmp::PartialEq + Copy>(&self, seqs: [&Sequence<T>; 2]) -> Alignment<T> {
         let start = std::time::Instant::now();
         let mut scores: Vec<Vec<f32>> = vec![vec![0.0; seqs[1].len() + 1]; seqs[0].len() + 1];
         let mut choices: Vec<Vec<AlignKind>> =
@@ -103,28 +120,32 @@ impl Aligner {
         }
         let mut i = seqs[0].len();
         let mut j = seqs[1].len();
-        let mut alignment = VecDeque::<[Option<char>; 2]>::default();
+        let mut alignment = Alignment::default();
         while i > 0 && j > 0 {
             match choices[i][j] {
                 AlignKind::Match => {
-                    alignment.push_front([Some(seqs[0].0[i - 1]), Some(seqs[1].0[j - 1])]);
+                    alignment
+                        .alignment
+                        .push_front([Some(seqs[0].0[i - 1]), Some(seqs[1].0[j - 1])]);
                     i -= 1;
                     j -= 1;
                 }
                 AlignKind::Delete => {
-                    alignment.push_front([Some(seqs[0].0[i - 1]), None]);
+                    alignment
+                        .alignment
+                        .push_front([Some(seqs[0].0[i - 1]), None]);
                     i -= 1;
                 }
                 AlignKind::Insert => {
-                    alignment.push_front([None, Some(seqs[1].0[j - 1])]);
+                    alignment
+                        .alignment
+                        .push_front([None, Some(seqs[1].0[j - 1])]);
                     j -= 1;
                 }
             }
         }
         debug!(duration = ?start.elapsed(), "Aligned");
-        Alignment {
-            score: scores[seqs[0].len()][seqs[1].len()],
-            alignment,
-        }
+        alignment.score = scores[seqs[0].len()][seqs[1].len()];
+        alignment
     }
 }

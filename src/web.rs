@@ -11,7 +11,7 @@ pub struct AlignData {
 pub async fn align_post(
     axum::extract::State(aligner): axum::extract::State<align::Aligner>,
     axum::Json(data): axum::Json<AlignData>,
-) -> axum::Json<align::Alignment> {
+) -> axum::Json<align::Alignment<char>> {
     info!("Processing request");
     let seq1 = Sequence::from(&data.seq1);
     let seq2 = Sequence::from(&data.seq2);
